@@ -1,40 +1,123 @@
 ---
 openapi: 3.0.1
 info:
-  title: OpenAPI definition
-  version: v0
+  title: ReturnZone
+  description: ReturnZone - 분실물 반환 중개 서비스
+  version: 1.0.0
 servers:
+- url: http://15.164.234.32:8080
+  description: 배포 서버
 - url: http://localhost:8080
-  description: Generated server url
+  description: 로컬 개발 서버
+tags:
+- name: 회원 API
+  description: 회원가입, 로그인 등 회원 관련 API
+- name: LostPost
+  description: 분실물 관련 API
+- name: 인증 API
+  description: 카카오 로그인 등 인증 관련 API
 paths:
-  "/join":
-    post:
+  "/api/v1/lostPosts/{lostPostId}":
+    get:
       tags:
-      - join-controller
-      operationId: joinProcess
+      - LostPost
+      summary: 분실물 정보 상세 조회
+      description: 분실물의 상세 정보를 조회합니다.
+      operationId: getLostPost
       parameters:
-      - name: joinDTO
-        in: query
+      - name: lostPostId
+        in: path
         required: true
         schema:
-          "$ref": "#/components/schemas/JoinDTO"
+          type: integer
+          format: int64
       responses:
         '200':
-          description: OK
+          description: 분실물 정보 상세 조회 성공
           content:
-            "*/*":
+            application/json:
               schema:
-                type: string
-  "/api/login":
+                "$ref": "#/components/schemas/LostPostResponseDto"
+    put:
+      tags:
+      - LostPost
+      summary: 분실물 게시글 수정
+      description: 특정 분실물 게시글을 수정합니다.
+      operationId: updateLostPost
+      parameters:
+      - name: lostPostId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/LostPostRequestDto"
+        required: true
+      responses:
+        '200':
+          description: 게시글 수정 성공
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LostPostResponseDto"
+        '400':
+          description: 유효성 검사 실패 또는 잘못된 요청
+        '404':
+          description: 게시글을 찾을 수 없음
+    delete:
+      tags:
+      - LostPost
+      summary: 분실물 게시글 삭제
+      description: 특정 분실물 게시글을 삭제합니다.
+      operationId: deleteLostPost
+      parameters:
+      - name: lostPostId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '204':
+          description: 게시글 삭제 성공 (반환 내용 없음)
+        '404':
+          description: 게시글을 찾을 수 없음
+  "/api/v1/members/signup":
     post:
       tags:
-      - login-controller
+      - 회원 API
+      summary: 회원가입
+      description: 회원가입을 진행합니다. (비밀번호는 최소 8자 이상이어야 합니다.)
+      operationId: signup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/SignupRequestDto"
+        required: true
+      responses:
+        '201':
+          description: 회원가입 성공
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SignupResponseDto"
+  "/api/v1/members/login":
+    post:
+      tags:
+      - 회원 API
+      summary: 로그인
+      description: 이메일과 비밀번호로 로그인합니다.
       operationId: login
       requestBody:
         content:
           application/json:
             schema:
-              "$ref": "#/components/schemas/LoginDTO"
+              "$ref": "#/components/schemas/LoginRequestDto"
         required: true
       responses:
         '200':
@@ -42,51 +125,467 @@ paths:
           content:
             "*/*":
               schema:
-                type: object
-  "/admin":
+                "$ref": "#/components/schemas/LoginResponseDto"
+  "/api/v1/lostPosts":
     get:
       tags:
-      - admin-controller
-      operationId: adminP
+      - LostPost
+      summary: 분실물 목록 조회
+      description: 분실물 목록을 조회합니다. (기본값은 최신순 정렬)
+      operationId: getLostPostList
+      parameters:
+      - name: sort
+        in: query
+        description: '정렬 방식<br>• **LATEST**: 최신순<br>• **DISTANCE**: 거리순(위·경도 필수)'
+        required: false
+        schema:
+          type: string
+          enum:
+          - LATEST
+          - DISTANCE
+      - name: latitude
+        in: query
+        description: 현재 위치 **위도**(거리순 정렬 시 필수)
+        required: false
+        schema:
+          type: number
+          format: double
+        example: 37.5665
+      - name: longitude
+        in: query
+        description: 현재 위치 **경도**(거리순 정렬 시 필수)
+        required: false
+        schema:
+          type: number
+          format: double
+        example: 126.978
+      - name: instant
+        in: query
+        description: "`true` : 즉시 정산 가능 글만"
+        required: false
+        schema:
+          type: boolean
+        example: true
+      - name: category
+        in: query
+        description: '카테고리 필터 (예: 전자기기, 지갑/가방)'
+        required: false
+        schema:
+          type: string
+        example: 전자기기
+      - name: page
+        in: query
+        description: Zero-based page index (0..N)
+        required: false
+        schema:
+          minimum: 0
+          type: integer
+          default: 0
+      - name: size
+        in: query
+        description: The size of the page to be returned
+        required: false
+        schema:
+          minimum: 1
+          type: integer
+          default: 10
+      responses:
+        '200':
+          description: 분실물 조회 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/SimpleLostPostResponseDto"
+    post:
+      tags:
+      - LostPost
+      summary: 분실물 게시글 등록
+      description: 새로운 분실물 게시글을 등록합니다.
+      operationId: createLostPost
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/LostPostRequestDto"
+        required: true
+      responses:
+        '201':
+          description: 게시글 등록 성공
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LostPostResponseDto"
+        '400':
+          description: 유효성 검사 실패 또는 잘못된 요청
+  "/auth/login/kakao":
+    get:
+      tags:
+      - 인증 API
+      summary: 카카오 로그인 콜백
+      description: 카카오 인가 코드를 받아 로그인/회원가입을 처리합니다.
+      operationId: kakaoLogin
+      parameters:
+      - name: code
+        in: query
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: OK
           content:
             "*/*":
               schema:
-                type: string
-  "/":
+                "$ref": "#/components/schemas/KakaoResponseLoginResponseDto"
+  "/api/v1/members/email/{email}":
     get:
       tags:
-      - main-controller
-      operationId: mainP
+      - 회원 API
+      summary: 이메일 중복 확인
+      description: 이메일이 이미 존재하는지 확인합니다.
+      operationId: checkEmailDuplicated
+      parameters:
+      - name: email
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
-          description: OK
+          description: 사용 가능 여부 반환
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: 이메일이 중복되었습니다.
           content:
             "*/*":
               schema:
-                type: string
+                type: boolean
+  "/api/v1/lostPosts/resolve-dong":
+    get:
+      tags:
+      - LostPost
+      summary: 카카오 맵 확인용 좌표로 동(Dong) 정보 조회 (테스트용)
+      description: 위도와 경도를 입력받아 카카오맵 API를 통해 동(Dong) 정보를 포함한 주소를 반환합니다.
+      operationId: resolveDongFromCoords
+      parameters:
+      - name: longitude
+        in: query
+        description: 조회할 위치의 경도
+        required: true
+        schema:
+          type: number
+          format: double
+        example: 126.978
+      - name: latitude
+        in: query
+        description: 조회할 위치의 위도
+        required: true
+        schema:
+          type: number
+          format: double
+        example: 37.5665
+      responses:
+        '200':
+          description: 주소 조회 성공
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Document"
+        '400':
+          description: 유효하지 않은 좌표
 components:
   schemas:
-    JoinDTO:
+    LostPostResponseDto:
       type: object
       properties:
-        userId:
+        lostPostId:
+          type: integer
+          description: 분실물 ID
+          format: int64
+          example: 1
+        title:
           type: string
-        password:
+          description: 분실물 제목
+          example: 소니 헤드셋
+        nickname:
           type: string
+          description: 유저 이름
+          example: 유저 1
+        timeAgo:
+          type: string
+          description: 업로드된 지 몇 시간 전
+          example: 3시간 전
+        lostLocationDong:
+          type: string
+          description: 분실 지역(동)
+          example: 월계 1동
+        detailedLocation:
+          type: string
+          description: 상세 위치
+          example: 주민센터 앞
+        latitude:
+          type: number
+          description: 위도
+          format: double
+          example: 37.5665
+        longitude:
+          type: number
+          description: 경도
+          format: double
+          example: 126.978
+        reward:
+          type: number
+          description: 현상금 (원)
+          example: 10000
+        imageUrls:
+          type: array
+          description: 이미지 URL
+          example: https://your-bucket.s3.ap-northeast-2.amazonaws.com/lostPosts/lostpost1.jpg
+          items:
+            type: string
+            description: 이미지 URL
+            example: https://your-bucket.s3.ap-northeast-2.amazonaws.com/lostPosts/lostpost1.jpg
+        instantSettlement:
+          type: boolean
+          description: 즉시 정산 가능 여부
+          example: true
+        description:
+          type: string
+          description: 본문 내용
+          example: 글 본문
+        category:
+          type: string
+          description: 카테고리
+          example: 전자기기
+        itemName:
+          type: string
+          description: 물품명
+          example: 아이폰 15 pro
+        feature1:
+          type: string
+          description: 특징 1
+          example: 빨간색
+        feature2:
+          type: string
+          description: 특징 2
+          example: 새 제품
+        feature3:
+          type: string
+          description: 특징 3
+          example: 스크래치 없음
+        feature4:
+          type: string
+          description: 특징 4
+          example: 박스 포함
+        feature5:
+          type: string
+          description: 특징 5
+          example: 정품
+        lostDateTimeStart:
+          type: string
+          description: 분실 시작 시간
+          format: date-time
+        lostDateTimeEnd:
+          type: string
+          description: 분실 종료 시간
+          format: date-time
+      description: 분실물 미리보기 응답 DTO
+    LostPostRequestDto:
+      required:
+      - category
+      - description
+      - detailedLocation
+      - itemName
+      - latitude
+      - longitude
+      - lostDateTimeEnd
+      - lostDateTimeStart
+      - reward
+      - title
+      type: object
+      properties:
+        title:
+          maxLength: 15
+          minLength: 0
+          type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        category:
+          type: string
+        itemName:
+          type: string
+        lostLocationDong:
+          type: string
+        detailedLocation:
+          type: string
+        longitude:
+          type: number
+          format: double
+        latitude:
+          type: number
+          format: double
+        lostDateTimeStart:
+          type: string
+          format: date-time
+        lostDateTimeEnd:
+          type: string
+          format: date-time
+        feature1:
+          type: string
+        feature2:
+          type: string
+        feature3:
+          type: string
+        feature4:
+          type: string
+        feature5:
+          type: string
+        reward:
+          minimum: 0
+          exclusiveMinimum: false
+          type: number
+        instantSettlement:
+          type: boolean
+    SignupResponseDto:
+      type: object
+      properties:
         email:
           type: string
-        gender:
+          description: 회원가입된 이메일
+          example: gildong@gmail.com
+        username:
           type: string
-        joinDate:
-          type: string
-          format: date
-    LoginDTO:
+          description: 회원가입된 이름
+          example: 홍길동
+      description: 회원가입 응답 DTO
+    SignupRequestDto:
+      required:
+      - email
+      - password
+      - username
       type: object
       properties:
-        userId:
+        username:
           type: string
+          description: 사용자의 이름
+          example: 홍길동
+        email:
+          type: string
+          description: 사용자의 이메일 주소
+          example: gildong@gmail.com
         password:
+          maxLength: 2147483647
+          minLength: 8
+          type: string
+          description: 사용자의 비밀번호 (최소 8자 이상)
+          example: password123
+      description: 회원가입 요청 DTO
+    LoginRequestDto:
+      required:
+      - email
+      - password
+      type: object
+      properties:
+        email:
+          type: string
+          description: 사용자의 이메일 주소
+          example: gildong@gmail.com
+        password:
+          type: string
+          description: 사용자의 비밀번호
+          example: password123
+      description: 로그인 요청 DTO
+    LoginResponseDto:
+      type: object
+      properties:
+        email:
+          type: string
+          description: 로그인된 이메일
+          example: gildong@gmail.com
+        username:
+          type: string
+          description: 로그인된 이름
+          example: 홍길동
+        imageUrl:
+          type: string
+          description: 로그인된 프로필 이미지 URL
+          example: http://example.com/profile.jpg
+      description: 로그인 응답 DTO
+    KakaoResponseLoginResponseDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/LoginResponseDto"
+    SimpleLostPostResponseDto:
+      type: object
+      properties:
+        lostPostId:
+          type: integer
+          description: 분실물 ID
+          format: int64
+          example: 1
+        title:
+          type: string
+          description: 분실물 제목
+          example: 소니 헤드셋
+        timeAgo:
+          type: string
+          description: 업로드된 지 몇 시간 전
+          example: 3시간 전
+        location:
+          type: string
+          description: 위치
+          example: 월계 1동
+        reward:
+          type: number
+          description: 현상금 (원)
+          example: 10000
+        mainImageUrl:
+          type: string
+          description: 대표 이미지 URL
+          example: https://your-bucket.s3.ap-northeast-2.amazonaws.com/lostPosts/lostpost1.jpg
+        instantSettlement:
+          type: boolean
+          description: 즉시 정산 가능 여부
+          example: true
+      description: 분실물 미리보기 응답 DTO
+    Address:
+      type: object
+      properties:
+        address_name:
+          type: string
+        region_3depth_name:
+          type: string
+        region_2depth_name:
+          type: string
+    Document:
+      type: object
+      properties:
+        address_name:
+          type: string
+        address:
+          "$ref": "#/components/schemas/Address"
+        road_address:
+          "$ref": "#/components/schemas/RoadAddress"
+    RoadAddress:
+      type: object
+      properties:
+        address_name:
+          type: string
+        region_3depth_name:
+          type: string
+        region_2depth_name:
           type: string
