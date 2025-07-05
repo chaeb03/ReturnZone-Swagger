@@ -18,6 +18,8 @@ tags:
   description: 분실물 관련 API
 - name: 인증 API
   description: 카카오 로그인 등 인증 관련 API
+- name: Search
+  description: 검색 및 최근 검색어 관련 API
 paths:
   "/api/v1/lostPosts/{lostPostId}":
     get:
@@ -53,6 +55,14 @@ paths:
         schema:
           type: integer
           format: int64
+      - name: X-USER-ID
+        in: header
+        description: 현재 로그인된 사용자 ID (X-USER-ID 헤더로 전달)
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
       requestBody:
         content:
           multipart/form-data:
@@ -92,6 +102,14 @@ paths:
         schema:
           type: integer
           format: int64
+      - name: X-USER-ID
+        in: header
+        description: 현재 로그인된 사용자 ID (X-USER-ID 헤더로 전달)
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
       responses:
         '204':
           description: 게시글 삭제 성공 (반환 내용 없음)
@@ -230,15 +248,22 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  "$ref": "#/components/schemas/SimpleLostPostResponseDto"
+                "$ref": "#/components/schemas/SimpleLostPostResponseDto"
     post:
       tags:
       - LostPost
       summary: 분실물 게시글 등록
       description: 새로운 분실물 게시글을 등록합니다.
       operationId: createLostPost
+      parameters:
+      - name: X-USER-ID
+        in: header
+        description: 현재 로그인된 사용자 ID (X-USER-ID 헤더로 전달)
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
       requestBody:
         content:
           multipart/form-data:
@@ -283,6 +308,104 @@ paths:
             "*/*":
               schema:
                 "$ref": "#/components/schemas/KakaoResponseLoginResponseDto"
+  "/api/v1/search/recent":
+    get:
+      tags:
+      - Search
+      summary: 최근 검색어 조회
+      description: 현재 로그인된 사용자의 최근 검색어 목록을 최신순으로 조회합니다.
+      operationId: getRecentSearches
+      parameters:
+      - name: X-USER-ID
+        in: header
+        description: 현재 로그인된 사용자 ID (X-USER-ID 헤더로 전달)
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          description: 인증 실패 (X-USER-ID 누락/잘못됨)
+    delete:
+      tags:
+      - Search
+      summary: 최근 검색어 개별 삭제
+      description: 현재 로그인된 사용자의 특정 최근 검색어를 삭제합니다.
+      operationId: deleteRecentSearch
+      parameters:
+      - name: X-USER-ID
+        in: header
+        description: 현재 로그인된 사용자 ID (X-USER-ID 헤더로 전달)
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: keyword
+        in: query
+        description: 삭제할 검색어
+        required: true
+        schema:
+          type: string
+        example: 아이폰
+      responses:
+        '204':
+          description: 삭제 성공
+        '400':
+          description: 잘못된 요청 (keyword 누락)
+        '401':
+          description: 인증 실패
+  "/api/v1/search/posts":
+    get:
+      tags:
+      - Search
+      summary: 분실물 게시글 검색
+      description: 게시글 제목으로 분실물을 검색합니다. 반환 완료 여부에 따라 필터링할 수 있습니다.
+      operationId: searchPosts
+      parameters:
+      - name: X-USER-ID
+        in: header
+        description: 현재 로그인된 사용자 ID (X-USER-ID 헤더로 전달)
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: keyword
+        in: query
+        description: 검색할 키워드 (게시글 제목에 포함)
+        required: true
+        schema:
+          type: string
+        example: 아이폰
+      - name: includeReturned
+        in: query
+        description: '반환 완료된 게시물 포함 여부 (true: 포함, false: 미포함)'
+        required: false
+        schema:
+          type: boolean
+          default: false
+        example: false
+      responses:
+        '200':
+          description: 검색 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/SimpleLostPostResponseDto"
+        '400':
+          description: 잘못된 요청 (키워드 누락 등)
   "/api/v1/members/email/{email}":
     get:
       tags:
@@ -309,6 +432,40 @@ paths:
             "*/*":
               schema:
                 type: boolean
+  "/api/v1/lostPosts/search":
+    get:
+      tags:
+      - LostPost
+      summary: 분실물 게시글 검색
+      description: 게시글 제목으로 분실물을 검색합니다. 반환 완료 여부에 따라 필터링할 수 있습니다.
+      operationId: searchLostPosts
+      parameters:
+      - name: keyword
+        in: query
+        description: 검색할 키워드 (게시글 제목에 포함)
+        required: true
+        schema:
+          type: string
+        example: 아이폰
+      - name: includeReturned
+        in: query
+        description: '반환 완료된 게시물 포함 여부 (true: 포함, false: 미포함)'
+        required: false
+        schema:
+          type: boolean
+          default: false
+        example: false
+      responses:
+        '200':
+          description: 검색 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/SimpleLostPostResponseDto"
+        '400':
+          description: 잘못된 요청 (키워드 누락 등)
   "/api/v1/lostPosts/resolve-dong":
     get:
       tags:
@@ -342,6 +499,27 @@ paths:
                 "$ref": "#/components/schemas/Document"
         '400':
           description: 유효하지 않은 좌표
+  "/api/v1/search/recent/all":
+    delete:
+      tags:
+      - Search
+      summary: 최근 검색어 전체 삭제
+      description: 현재 로그인된 사용자의 모든 최근 검색어를 삭제합니다.
+      operationId: deleteAllRecentSearches
+      parameters:
+      - name: X-USER-ID
+        in: header
+        description: 현재 로그인된 사용자 ID (X-USER-ID 헤더로 전달)
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      responses:
+        '204':
+          description: 삭제 성공
+        '401':
+          description: 인증 실패
 components:
   schemas:
     LostPostResponseDto:
