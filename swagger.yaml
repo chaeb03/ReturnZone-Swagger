@@ -10,6 +10,8 @@ servers:
 - url: http://localhost:8080
   description: 로컬 개발 서버
 tags:
+- name: Test
+  description: S3 업로드 및 DB 저장 테스트 API
 - name: 회원 API
   description: 회원가입, 로그인 등 회원 관련 API
 - name: LostPost
@@ -53,10 +55,19 @@ paths:
           format: int64
       requestBody:
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              "$ref": "#/components/schemas/LostPostRequestDto"
-        required: true
+              required:
+              - requestDto
+              type: object
+              properties:
+                requestDto:
+                  "$ref": "#/components/schemas/LostPostRequestDto"
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
       responses:
         '200':
           description: 게시글 수정 성공
@@ -86,6 +97,30 @@ paths:
           description: 게시글 삭제 성공 (반환 내용 없음)
         '404':
           description: 게시글을 찾을 수 없음
+  "/api/v1/test/upload":
+    post:
+      tags:
+      - Test
+      summary: 테스트 파일 업로드 및 DB 저장
+      description: 이미지 파일과 텍스트를 받아 S3에 업로드하고, 그 정보를 DB에 저장합니다.
+      operationId: uploadFile
+      requestBody:
+        description: 업로드할 이미지 파일과 이미지 설명 텍스트
+        content:
+          multipart/form-data:
+            schema:
+              "$ref": "#/components/schemas/TestFileUploadRequest"
+      responses:
+        '200':
+          description: 파일 업로드 및 DB 저장 성공
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/TestFileEntity"
+        '400':
+          description: 잘못된 요청 또는 파일 업로드 실패
+        '500':
+          description: 서버 내부 오류
   "/api/v1/members/signup":
     post:
       tags:
@@ -206,10 +241,19 @@ paths:
       operationId: createLostPost
       requestBody:
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              "$ref": "#/components/schemas/LostPostRequestDto"
-        required: true
+              required:
+              - requestDto
+              type: object
+              properties:
+                requestDto:
+                  "$ref": "#/components/schemas/LostPostRequestDto"
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
       responses:
         '201':
           description: 게시글 등록 성공
@@ -308,6 +352,21 @@ components:
           description: 분실물 ID
           format: int64
           example: 1
+        imageUrls:
+          type: array
+          description: 이미지 URL
+          example: https://your-bucket.s3.ap-northeast-2.amazonaws.com/lostPosts/lostpost1.jpg
+          items:
+            type: string
+            description: 이미지 URL
+            example: https://your-bucket.s3.ap-northeast-2.amazonaws.com/lostPosts/lostpost1.jpg
+        registrationType:
+          type: string
+          description: 게시글 등록 유형
+          example: LOST
+          enum:
+          - LOST
+          - FOUND
         title:
           type: string
           description: 분실물 제목
@@ -342,14 +401,6 @@ components:
           type: number
           description: 현상금 (원)
           example: 10000
-        imageUrls:
-          type: array
-          description: 이미지 URL
-          example: https://your-bucket.s3.ap-northeast-2.amazonaws.com/lostPosts/lostpost1.jpg
-          items:
-            type: string
-            description: 이미지 URL
-            example: https://your-bucket.s3.ap-northeast-2.amazonaws.com/lostPosts/lostpost1.jpg
         instantSettlement:
           type: boolean
           description: 즉시 정산 가능 여부
@@ -405,18 +456,28 @@ components:
       - longitude
       - lostDateTimeEnd
       - lostDateTimeStart
+      - registrationType
       - reward
       - title
       type: object
       properties:
-        title:
-          maxLength: 15
-          minLength: 0
-          type: string
         imageUrls:
           type: array
           items:
             type: string
+        registrationType:
+          type: string
+          description: 게시글 등록 유형
+          example: LOST
+          enum:
+          - LOST
+          - FOUND
+          - LOST
+          - FOUND
+        title:
+          maxLength: 15
+          minLength: 0
+          type: string
         description:
           type: string
         category:
@@ -455,6 +516,28 @@ components:
           type: number
         instantSettlement:
           type: boolean
+    TestFileUploadRequest:
+      type: object
+      properties:
+        imgFile:
+          type: string
+          description: 업로드할 이미지 파일
+          format: binary
+        imgText:
+          type: string
+          description: 이미지 설명 텍스트
+          example: 테스트 이미지입니다.
+      description: 테스트 파일 업로드 요청 스키마
+    TestFileEntity:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        imgText:
+          type: string
+        imgUrl:
+          type: string
     SignupResponseDto:
       type: object
       properties:
@@ -561,6 +644,13 @@ components:
           type: boolean
           description: 즉시 정산 가능 여부
           example: true
+        registrationType:
+          type: string
+          description: 게시글 등록 유형
+          example: LOST
+          enum:
+          - LOST
+          - FOUND
       description: 분실물 미리보기 응답 DTO
     Address:
       type: object
